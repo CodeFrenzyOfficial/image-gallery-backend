@@ -42,6 +42,4 @@ app.use('/firebase', firebase_routes);
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 
 
-module.exports = {
-  socket,
-}
+module.exports = app;
