@@ -19,6 +19,7 @@ const {
   startAt,
   where,
 } = require("firebase/firestore");
+
 const {
   firebase_app_storage,
   firebase_app_db,
@@ -43,10 +44,7 @@ const GET_ALL_IMAGES_A_Z = async (request, response) => {
   try {
     const { lastVisibleDocId } = request.body; // Extract pagination params from request
     const collectionRef = collection(firebase_app_db, "media");
-    let queryRef = query(
-      collectionRef,
-      orderBy("alphaname", "asc"),
-    );
+    let queryRef = query(collectionRef, orderBy("alphaname", "asc"));
 
     // If `lastVisibleDocId` is provided, use it to start the next query
     if (lastVisibleDocId) {
@@ -130,19 +128,26 @@ const GET_ALL_IMAGES_A_Z = async (request, response) => {
 
 const GET_ORDERED_IMAGES = async (request, response) => {
   try {
-    const { lastVisibleDocId, order_by_key, order_by_value, order_by_key_2, order_by_value_2, size_limit } = request.body; // Extract pagination params from request
-    
+    const {
+      lastVisibleDocId,
+      order_by_key,
+      order_by_value,
+      order_by_key_2,
+      order_by_value_2,
+      size_limit,
+    } = request.body; // Extract pagination params from request
+
     const collectionRef = collection(firebase_app_db, "media");
     let queryRef;
 
-    if(order_by_key_2 && order_by_value_2){
+    if (order_by_key_2 && order_by_value_2) {
       queryRef = query(
         collectionRef,
         orderBy(order_by_key, order_by_value),
         orderBy(order_by_key_2, order_by_value_2),
         limit(size_limit)
       );
-    }else{
+    } else {
       queryRef = query(
         collectionRef,
         orderBy(order_by_key, order_by_value),
@@ -339,15 +344,56 @@ const GET_RANDOM_IMAGES = async (request, response) => {
   // }
 };
 
-const GET_ALL_IMAGES = async (request, response) => {
+// Fade Page Data Controller
+const GET_FADE_IMAGES = async (request, response) => {
+  try {
+    const { pageSize = 45 } = request.query; // Accept from query string
+    const collectionRef = collection(firebase_app_db, "media");
 
+    // Step 1: Get all document IDs
+    const allDocsSnapshot = await getDocs(collectionRef);
+    const allDocIds = allDocsSnapshot.docs.map((doc) => doc.id);
+
+    if (allDocIds.length === 0) {
+      return response.status(404).json({ error: "No images found." });
+    }
+
+    // Step 2: Randomly select unique document IDs
+    const selectedDocIds = new Set();
+    while (selectedDocIds.size < Math.min(pageSize, allDocIds.length)) {
+      const randomIndex = Math.floor(Math.random() * allDocIds.length);
+      selectedDocIds.add(allDocIds[randomIndex]);
+    }
+
+    // Step 3: Fetch document data
+    const fetchPromises = Array.from(selectedDocIds).map((id) =>
+      getDoc(doc(collectionRef, id))
+    );
+    const docSnapshots = await Promise.all(fetchPromises);
+
+    const images = docSnapshots.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    return response.status(200).json({
+      images,
+      message: "Successfully fetched images for fade animation.",
+    });
+  } catch (error) {
+    console.error("Error in GET_FADE_IMAGES:", error);
+    return response.status(500).json({
+      error: "Failed to fetch images for fade.",
+      details: error.message,
+    });
+  }
+};
+
+const GET_ALL_IMAGES = async (request, response) => {
   try {
     const { lastVisibleDocId } = request.body; // Extract pagination params from request
     const collectionRef = collection(firebase_app_db, "media");
-    let queryRef = query(
-      collectionRef,
-      orderBy("name", "asc"),
-    );
+    let queryRef = query(collectionRef, orderBy("name", "asc"));
 
     // If `lastVisibleDocId` is provided, use it to start the next query
     if (lastVisibleDocId) {
@@ -565,4 +611,5 @@ module.exports = {
   GET_SINGLE_FILE,
   GET_ORDERED_IMAGES,
   getCount,
+  GET_FADE_IMAGES,
 };
